@@ -30,4 +30,4 @@ git clone [https://github.com/linnana-raiza/linnana-toolbox.git)
 双击`start.bat`即可运行
 
 ## 其他建议
-live2d可前往[Live2d-model](url=https://github.com/Eikanya/Live2d-model)
+live2d可前往[Live2d-model](https://github.com/Eikanya/Live2d-model)下载
