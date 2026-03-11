@@ -1,5 +1,5 @@
 // ==========================================
-// launcher.js: 抽屉与应用网格管理器
+// launcher.js: 抽屉与应用网格管理器 (防爆破优化版)
 // ==========================================
 let launcherApps = [];
 
@@ -12,11 +12,15 @@ const appGrid = document.getElementById('app-grid');
 appMenuBtn.addEventListener('click', () => { appMenuModal.classList.add('show'); fetchApps(); });
 closeAppMenuBtn.addEventListener('click', () => appMenuModal.classList.remove('show'));
 
+// 🚀 替换 1：获取应用列表
 async function fetchApps() {
     try {
-        const res = await fetch('/api/apps/list?t=' + Date.now());
-        launcherApps = await res.json();
-        renderApps();
+        const data = await safeFetchJson('/api/apps/list?t=' + Date.now());
+        // 如果没有报错，就把数据赋给列表并渲染
+        if (!data.error) {
+            launcherApps = data;
+            renderApps();
+        }
     } catch (e) { console.error("加载应用列表失败", e); }
 }
 
@@ -44,19 +48,29 @@ function renderApps() {
             <div class="app-name">${app.name}</div>
         `;
         
+        // 🚀 替换 2：点击图标打开应用
         item.onclick = async (e) => {
             if (e.target.classList.contains('app-delete-btn')) return; 
             try {
-                const res = await fetch('/api/open-file', {
+                const result = await safeFetchJson('/api/open-file', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ path: app.path })
                 });
-                const result = await res.json();
-                if (result.status === "error") alert("无法打开：" + result.message);
+                
+                // 处理网络层面的错误
+                if (result.error) {
+                    alert("网络请求失败，请检查后台运行状态");
+                    return;
+                }
+                // 处理业务层面的错误（比如文件不存在）
+                if (result.status === "error") {
+                    alert("无法打开：" + result.message);
+                }
             } catch (err) { console.error("打开应用失败", err); }
         };
 
+        // 💡 这里的 save 请求只发送数据，不需要 json() 解析，所以保留原生 fetch
         item.querySelector('.app-delete-btn').onclick = async () => {
             launcherApps.splice(index, 1);
             renderApps();
@@ -68,18 +82,20 @@ function renderApps() {
     });
 }
 
+// 🚀 替换 3：添加新应用时的系统弹窗选择
 addAppBtn.addEventListener('click', async () => {
     const originalText = addAppBtn.innerText;
     addAppBtn.innerText = "⏳ 请在系统弹窗中选择...";
     addAppBtn.style.pointerEvents = "none";
     
     try {
-        const res = await fetch('/api/apps/pick-file');
-        const data = await res.json();
+        const data = await safeFetchJson('/api/apps/pick-file');
         
-        if (data.status === 'success') {
+        // 确保没有网络报错，且业务状态为成功
+        if (!data.error && data.status === 'success') {
             launcherApps.push(data.app);
             renderApps();
+            // 💡 这里的 save 同样只发送不解析，保留原生 fetch
             await fetch('/api/apps/save', { 
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(launcherApps) 
             });

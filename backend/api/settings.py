@@ -4,9 +4,10 @@ import shutil
 import time
 from fastapi import APIRouter, UploadFile, Form
 from pydantic import BaseModel
+from dotenv import dotenv_values
 
 # 引入核心配置
-from config import env_path, assets_dir, env_file_lock
+from config import env_path, assets_dir, data_dir, env_file_lock
 
 router = APIRouter()
 
@@ -110,7 +111,7 @@ def get_settings_schema():
 @router.get("/get-live2d-models")
 def get_live2d_models():
     models = []
-    live2d_dir = os.path.join(assets_dir, "live2d")
+    live2d_dir = os.path.join(data_dir, "live2d")
     if not os.path.exists(live2d_dir):
         return models
 
@@ -120,10 +121,10 @@ def get_live2d_models():
             # 🚀 核心改动：同时兼容 .model.json (老版) 和 .model3.json (新版)
             if file.endswith(".model3.json") or file.endswith(".model.json"):
                 full_path = os.path.join(root, file)
-                # 获取相对于 assets 的相对路径 (前端需要这个)
-                rel_path = os.path.relpath(full_path, assets_dir).replace("\\", "/")
-                # 拿模型所在的文件夹名字作为展示名称
-                name = os.path.basename(os.path.dirname(full_path))
+                # 获取相对于 assets 的相对路径 (前端加载模型需要这个)
+                rel_path = os.path.relpath(full_path, assets_dir).replace("\\", "/")  
+                # 改动：计算当前文件夹 (root) 相对于 live2d 根目录的路径
+                name = os.path.relpath(root, live2d_dir).replace("\\", "/")
                 
                 # 去重逻辑：防止同一个文件夹里既有 .model.json 又有 .model3.json 导致重复显示
                 if not any(m["name"] == name for m in models):
@@ -132,7 +133,7 @@ def get_live2d_models():
     return models
 
 # ==========================================
-# 路由：保存设置与上传壁纸 (使用自研更新器)
+# 路由：保存设置与上传壁纸
 # ==========================================
 @router.post("/save-setting")
 def save_setting(data: SettingData):
@@ -143,17 +144,13 @@ def save_setting(data: SettingData):
 
 @router.post("/upload-wallpaper")
 async def upload_wallpaper(file: UploadFile, wallpaper_type: str = Form(...)):
-    ext = os.path.splitext(file.filename)[1]
-    new_filename = f"wallpaper_{int(time.time())}{ext}"
-    file_path = os.path.join(assets_dir, new_filename)
+    # 强制统一名称：图片一律叫 wallpaper-static.jpg，视频一律叫 wallpaper-dynamic.mp4
+    # 这样前端就不需要去读取任何名称了，直接死磕这两个路径
+    new_filename = "wallpaper-static.jpg" if wallpaper_type == "static" else "wallpaper-dynamic.mp4"
+    file_path = os.path.join(data_dir, new_filename) 
     
+    # 直接写入！操作系统会自动覆盖旧的同名文件，连“删除旧文件”的垃圾回收逻辑都省了
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    
-    env_key = "STATIC_WALLPAPER" if wallpaper_type == "static" else "DYNAMIC_WALLPAPER"
-    
-    with env_file_lock:
-        update_env_key(env_key, new_filename) # 抛弃 set_key，使用自研引擎
-    os.environ[env_key] = new_filename
         
-    return {"message": "上传成功", "filename": new_filename}
+    return {"message": "壁纸已更新", "filename": new_filename}

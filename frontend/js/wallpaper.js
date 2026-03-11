@@ -33,11 +33,16 @@ async function startLive2D() {
     });
 
     try {
-        currentLive2dModel = await PIXI.live2d.Live2DModel.from(`./assets/${window.ToolBoxContext.paths.live2d}`);
+        currentLive2dModel = await PIXI.live2d.Live2DModel.from(`/data/${window.ToolBoxContext.paths.live2d}`);
         live2dApp.stage.addChild(currentLive2dModel);
 
         updateLive2dLayout();
         setupLive2DInteractions(currentLive2dModel);
+
+        if (PIXI.live2d.SoundManager) {
+            PIXI.live2d.SoundManager.volume = window.ToolBoxContext.live2dVolume;
+        }
+
         console.log("✅ Live2D 引擎启动成功！");
     } catch (e) { console.error("❌ Live2D 加载失败:", e); }
 }
@@ -157,18 +162,25 @@ window.addEventListener('pointerdown', (e) => {
 
     const target = e.target;
     const clickedUI = target.closest('#top-controls') || 
-                      target.closest('#todo-panel') || 
-                      target.closest('#settings-modal') || 
-                      target.closest('#app-menu-modal');
+                  target.closest('#todo-panel') || 
+                  target.closest('#settings-modal') || 
+                  target.closest('#app-menu-modal') ||
+                  target.closest('#music-widget') ||
+                  target.closest('#time-widget');
     if (clickedUI) return; 
 
     setTimeout(() => {
-        if (!window.ToolBoxContext.live2dHitTriggered) {
-            console.log("👉 触发桌面全局空地点击 (兜底)");
-            currentLive2dModel.isInteracting = true; // 开启拦截锁
-            playSmartMotion(currentLive2dModel, []);
+    if (!window.ToolBoxContext.live2dHitTriggered) {
+        // 🚀 核心修复：同样检查状态锁，动作没播完就不响应空地点击
+        if (currentLive2dModel && currentLive2dModel.isInteracting) {
+            return;
         }
-    }, 50);
+        
+        console.log("👉 触发桌面全局空地点击 (兜底)");
+        currentLive2dModel.isInteracting = true; // 开启拦截锁
+        playSmartMotion(currentLive2dModel, []);
+    }
+}, 50);
 });
 
 function setupLive2DInteractions(model) {
@@ -191,12 +203,19 @@ function setupLive2DInteractions(model) {
     }
 
     model.on('hit', (hitAreas) => {
-        window.ToolBoxContext.live2dHitTriggered = true;
-        model.isInteracting = true; // 开启拦截锁
-        console.log("👉 触发精准判定区:", hitAreas);
-        playSmartMotion(model, hitAreas);
-        setTimeout(() => window.ToolBoxContext.live2dHitTriggered = false, 100);
-    });
+    window.ToolBoxContext.live2dHitTriggered = true;
+    setTimeout(() => window.ToolBoxContext.live2dHitTriggered = false, 100);
+
+    // 🚀 核心修复：如果模型正在播放动画，直接无视新的点击，防止鬼畜和打断
+    if (model.isInteracting) {
+        console.log("⏳ 模型正在动作中，忽略本次点击");
+        return;
+    }
+
+    model.isInteracting = true; // 开启拦截锁
+    console.log("👉 触发精准判定区:", hitAreas);
+    playSmartMotion(model, hitAreas);
+});
 
     model.internalModel.motionManager.on('motionFinish', () => { 
         model.isInteracting = false; // 动作播放完毕，解除拦截锁，恢复鼠标跟随
@@ -218,3 +237,25 @@ document.getElementById('wallpaper-toggle').addEventListener('click', () => {
     applyVisualEffect['WALLPAPER_TYPE'](nextState); 
     performSave('WALLPAPER_TYPE', nextState);       
 });
+
+// ==========================================
+// 核心修复：破解 Chromium 内核的媒体自动播放限制
+// ==========================================
+let isAudioUnlocked = false;
+window.addEventListener('pointerdown', () => {
+    if (isAudioUnlocked) return;
+    
+    // 用户第一次点击屏幕时，悄悄播放一个空音频，骗过浏览器安全机制
+    const unlockAudio = new Audio();
+    unlockAudio.play().catch(() => {});
+    
+    // 如果 PIXI 引擎使用了 Web Audio API，顺便唤醒它
+    if (window.PIXI && PIXI.live2d && PIXI.live2d.SoundManager && PIXI.live2d.SoundManager._context) {
+        if (PIXI.live2d.SoundManager._context.state === 'suspended') {
+            PIXI.live2d.SoundManager._context.resume();
+        }
+    }
+    
+    isAudioUnlocked = true;
+    console.log("🔊 浏览器全局音频播放限制已解除");
+}, { once: true }); // once: true 确保这个监听器触发一次后就自动销毁，节省性能

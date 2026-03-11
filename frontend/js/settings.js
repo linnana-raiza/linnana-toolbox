@@ -9,10 +9,12 @@ document.getElementById('close-settings').addEventListener('click', () => settin
 
 async function loadDynamicSettings() {
     try {
-        const response = await fetch('/get-settings-schema?t=' + new Date().getTime());
-        settingsSchema = await response.json();
-        renderSettingsSidebar();
-        if (settingsSchema.length > 0) renderSettingsForm(0);
+        const data = await safeFetchJson('/api/settings/get-settings-schema?t=' + new Date().getTime());
+        if (!data.error) {
+            settingsSchema = data;
+            renderSettingsSidebar();
+            if (settingsSchema.length > 0) renderSettingsForm(0);
+        }
     } catch (error) { console.error("加载设置架构失败", error); }
 }
 
@@ -63,13 +65,10 @@ function renderSettingsForm(categoryIndex) {
                 const uploadType = tags[1] || 'static'; 
                 const accept = uploadType === 'static' ? 'image/*' : 'video/mp4';
                 inputHtml = `
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="text" class="dynamic-input" value="${displayValue}" readonly style="flex:1; opacity:0.6;">
-                        <label style="background: #3b82f6; padding: 10px 15px; border-radius: 6px; cursor: pointer; color: white; white-space: nowrap; transition: 0.2s;">
-                            上传文件
-                            <input type="file" class="dynamic-upload" data-upload-type="${uploadType}" accept="${accept}" style="display:none;">
-                        </label>
-                    </div>
+                    <label class="clean-upload-btn">
+                        更换壁纸
+                        <input type="file" class="dynamic-upload" data-upload-type="${uploadType}" accept="${accept}" style="display:none;">
+                    </label>
                 `;
             } else if (type === 'select') {
                 // 🚀 新增：渲染下拉框结构
@@ -145,8 +144,8 @@ function renderSettingsForm(categoryIndex) {
         
         if (source === 'live2d') {
             try {
-                const res = await fetch('/get-live2d-models');
-                const models = await res.json();
+                const models = await safeFetchJson('/api/settings/get-live2d-models');
+                if (models.error) return;
                 select.innerHTML = ''; 
                 
                 if (models.length === 0) {

@@ -10,7 +10,7 @@
 
 /* ... 下面是你原本的 body 样式 ... */
 
-body { margin: 0; padding: 0; height: 100vh; background-image: url('./bg.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; background-color: #1e3c72; color: white; font-family: 'Microsoft YaHei', sans-serif; overflow: hidden; position: relative; }
+body { margin: 0; padding: 0; height: 100vh; background-image: url('/data/wallpaper-static.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; background-color: #1e3c72; color: white; font-family: 'Microsoft YaHei', sans-serif; overflow: hidden; position: relative; }
 #bg-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; transition: opacity 0.5s ease; }
 
 #top-controls { position: absolute; top: 20px; right: 20px; z-index: 10; display: flex; gap: 10px; }
@@ -46,7 +46,7 @@ body { margin: 0; padding: 0; height: 100vh; background-image: url('./bg.jpg'); 
 .sidebar-tab:hover { background: rgba(255,255,255,0.05); color: white; }
 .sidebar-tab.active { background: rgba(59, 130, 246, 0.2); color: white; border-left-color: #3b82f6; }
 
-.settings-content-area { flex: 1; padding: 30px; overflow-y: auto; position: relative; }
+.settings-content-area { flex: 1; padding: 30px; overflow-y: auto; }
 .settings-content-area::-webkit-scrollbar { width: 6px; }
 .settings-content-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
 
@@ -81,7 +81,17 @@ body { margin: 0; padding: 0; height: 100vh; background-image: url('./bg.jpg'); 
 
 /* ================= 待办面板 ================= */
 #todo-panel { position: absolute; top: 10%; left: 50px; width: 380px; height: 500px; min-width: 300px; min-height: 250px; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.2); border-radius: 15px; padding: 15px 20px; z-index: 15; resize: both; overflow: hidden; display: flex; flex-direction: column; transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-radius 0.3s, padding 0.3s; }
-#todo-panel.animate-size { transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), height 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-radius 0.3s, padding 0.3s; }
+#todo-panel.animate-size { 
+    transition: 
+        width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), 
+        height 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), 
+        min-width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),  /* 🚀 核心修复：平滑过渡最小宽度 */
+        min-height 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), /* 🚀 核心修复：平滑过渡最小高度 */
+        left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), 
+        top 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), 
+        border-radius 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), 
+        padding 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
+}
 #todo-panel.no-transition { transition: none !important; }
 
 #todo-header { cursor: grab; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -155,3 +165,155 @@ body { margin: 0; padding: 0; height: 100vh; background-image: url('./bg.jpg'); 
 }
 .app-item:hover .app-delete-btn { display: flex; }
 .app-delete-btn:hover { background: #dc2626; transform: scale(1.1); }
+
+/* ================= 高颜值极简上传按钮 ================= */
+.clean-upload-btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 12px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    backdrop-filter: blur(4px);
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+}
+
+.clean-upload-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.6);
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transform: translateY(-2px);
+}
+
+.clean-upload-btn:active {
+    transform: translateY(1px);
+    box-shadow: none;
+}
+
+/* ================= 左下角音乐播放器 ================= */
+#music-widget {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+    width: 280px;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 15px;
+    padding: 15px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: all 0.3s ease;
+}
+.music-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.9);
+}
+#music-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 170px;
+    font-weight: bold;
+}
+#music-time { font-family: tabular-nums; font-size: 0.75rem; opacity: 0.8; }
+.music-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+}
+#music-progress {
+    height: 100%;
+    width: 0%;
+    background: #3b82f6;
+    border-radius: 2px;
+    transition: width 0.1s linear;
+}
+.music-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+}
+.music-controls .icon-btn { font-size: 1.2rem; }
+.music-controls .icon-btn:hover { color: #3b82f6; }
+
+/* 播放列表弹窗（往上弹出） */
+#music-list-panel {
+    position: absolute;
+    bottom: calc(100% + 15px);
+    left: 0;
+    width: 100%;
+    max-height: 200px;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+#music-list-panel.show { opacity: 1; visibility: visible; transform: translateY(0); }
+#music-list-panel::-webkit-scrollbar { width: 4px; }
+#music-list-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 2px; }
+.music-item {
+    padding: 10px 15px;
+    font-size: 0.85rem;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: 0.2s;
+}
+.music-item:hover, .music-item.active { background: rgba(59, 130, 246, 0.3); color: white; border-left: 3px solid #3b82f6; }
+
+/* ================= 播放器音量控制 ================= */
+.volume-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    position: relative;
+}
+
+#music-volume-slider {
+    width: 0;
+    opacity: 0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    height: 4px;
+    -webkit-appearance: none;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+}
+
+/* 鼠标悬停在音量容器上时，展开进度条 */
+.volume-container:hover #music-volume-slider {
+    width: 60px;
+    opacity: 1;
+}
+
+#music-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+}

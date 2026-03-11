@@ -40,10 +40,9 @@ searchInput.addEventListener('input', (e) => {
         searchResultsPanel.classList.add('show');
         
         try {
-            const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-            const results = await response.json();
+            const results = await safeFetchJson(`/api/search?q=${encodeURIComponent(query)}`);
+            if (results.error) { searchResultsList.innerHTML = `<div class="search-empty">⚠️ 请求失败</div>`; return; }
             
-            if (results.error) { searchResultsList.innerHTML = `<div class="search-empty">⚠️ ${results.error}</div>`; return; }
             if (results.length === 0) { searchResultsList.innerHTML = '<div class="search-empty">没有找到相关文件</div>'; return; }
 
             searchResultsList.innerHTML = '';
@@ -62,12 +61,11 @@ searchInput.addEventListener('input', (e) => {
                     searchContainer.classList.remove('active');
                     searchInput.value = ''; 
                     try {
-                        const response = await fetch('/api/open-file', {
+                        const result = await safeFetchJson('/api/open-file', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ path: fullPath })
                         });
-                        const result = await response.json();
                         if (result.status === "error") alert("打开失败：" + result.message);
                     } catch (err) { console.error("请求打开接口失败", err); }
                 };

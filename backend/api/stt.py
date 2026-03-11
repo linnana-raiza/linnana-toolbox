@@ -1,6 +1,6 @@
 import os
 import threading
-import gc  # 🚀 新增：垃圾回收模块
+import gc
 import time
 import numpy as np
 import sounddevice as sd
@@ -122,7 +122,14 @@ class STTManager:
 
     def audio_callback(self, indata, frames, time, status):
         if self.is_recording:
-            self.audio_data.append(indata.copy())
+            # 安全锁：限制最大录音长度，防止卡键导致内存溢出 (OOM)
+            # 16000 采样率下单次 callback 包含一定 frames
+            # len=1500 大约对应 30~60 秒的录音，足够绝大多数快捷输入场景
+            if len(self.audio_data) < 1500:
+                self.audio_data.append(indata.copy())
+            else:
+                print("⚠️ 达到最大录音时长限制，为了保护内存，强制停止并开始识别！")
+                self.stop_recording()
 
     def transcribe_worker(self):
         try:

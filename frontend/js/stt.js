@@ -6,9 +6,8 @@ let isSttLoading = false;
 
 async function checkSttStatus() {
     try {
-        const res = await fetch('/api/stt/status?t=' + Date.now());
-        const data = await res.json();
-        if (data.is_running) {
+        const data = await safeFetchJson('/api/stt/status?t=' + Date.now());
+        if (!data.error && data.is_running) {
             sttToggleBtn.textContent = '🟢 语音服务运行中';
             sttToggleBtn.classList.add('primary');
         }
@@ -25,8 +24,8 @@ sttToggleBtn.addEventListener('click', async () => {
     }
 
     try {
-        const res = await fetch('/api/stt/toggle', { method: 'POST' });
-        const data = await res.json();
+        const data = await safeFetchJson('/api/stt/toggle', { method: 'POST' });
+        if (data.error) throw new Error("API 异常");
         
         if (data.status === 'started') {
             sttToggleBtn.textContent = '🟢 语音服务运行中';

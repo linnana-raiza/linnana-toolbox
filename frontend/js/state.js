@@ -10,6 +10,7 @@ window.ToolBoxContext = {
     live2dScale: 1.2,
     live2dXOffset: 0,
     live2dYOffset: 150,
+    live2dVolume: 0.5,
     paths: {
         static: null,
         dynamic: null,
@@ -46,15 +47,15 @@ const applyVisualEffect = {
         }
     },
     
-    'STATIC_WALLPAPER': (val) => { 
-        window.ToolBoxContext.paths.static = val; 
-        if (window.ToolBoxContext.wallpaperType === 'static') document.body.style.backgroundImage = `url('./assets/${val}')`;
+    'STATIC_WALLPAPER': () => { 
+        if (window.ToolBoxContext.wallpaperType === 'static') {
+            document.body.style.backgroundImage = `url('/data/wallpaper-static.jpg?t=${Date.now()}')`;
+        }
     },
-    'DYNAMIC_WALLPAPER': (val) => { 
-        window.ToolBoxContext.paths.dynamic = val; 
+    'DYNAMIC_WALLPAPER': () => { 
         if (window.ToolBoxContext.wallpaperType === 'dynamic') {
             const video = document.getElementById('bg-video');
-            video.innerHTML = `<source src="./assets/${val}" type="video/mp4">`; 
+            video.innerHTML = `<source src="/data/wallpaper-dynamic.mp4?t=${Date.now()}" type="video/mp4">`; 
             video.load();
         }
     },
@@ -72,6 +73,33 @@ const applyVisualEffect = {
     'LIVE2D_X': (val) => { window.ToolBoxContext.live2dXOffset = parseFloat(val); if (typeof updateLive2dLayout === 'function') updateLive2dLayout(); },
     'LIVE2D_Y': (val) => { window.ToolBoxContext.live2dYOffset = parseFloat(val); if (typeof updateLive2dLayout === 'function') updateLive2dLayout(); },
 
+    'LIVE2D_VOLUME': (val) => { 
+        window.ToolBoxContext.live2dVolume = parseFloat(val); 
+        // 实时调整 PIXI 声音引擎的音量
+        if (window.PIXI && PIXI.live2d && PIXI.live2d.SoundManager) {
+            PIXI.live2d.SoundManager.volume = window.ToolBoxContext.live2dVolume;
+        }
+    },
+
+    'MUSIC_VOLUME': (val) => {
+        const audioPlayer = document.getElementById('audio-player');
+        const volumeSlider = document.getElementById('music-volume-slider');
+        const volumeIcon = document.getElementById('volume-icon');
+
+        if (audioPlayer) {
+            const volume = parseFloat(val);
+            audioPlayer.volume = volume;
+
+            // 同时更新 UI 状态，保证进度条位置和图标是对的
+            if (volumeSlider) volumeSlider.value = volume;
+            if (volumeIcon) {
+                if (volume === 0) volumeIcon.textContent = '🔇';
+                else if (volume < 0.5) volumeIcon.textContent = '🔉';
+                else volumeIcon.textContent = '🔊';
+            }
+        }
+    },
+    
     'WALLPAPER_TYPE': (val) => {
         const videoElement = document.getElementById('bg-video');
         const toggleButton = document.getElementById('wallpaper-toggle');
@@ -79,7 +107,7 @@ const applyVisualEffect = {
 
         if (val === 'static') {
             videoElement.style.display = 'none';
-            if (window.ToolBoxContext.paths.static) document.body.style.backgroundImage = `url('./assets/${window.ToolBoxContext.paths.static}')`;
+            document.body.style.backgroundImage = `url('/data/wallpaper-static.jpg?t=${Date.now()}')`;
             toggleButton.textContent = '切换动态';
             if (typeof stopLive2D === 'function') stopLive2D(); 
             
@@ -91,7 +119,7 @@ const applyVisualEffect = {
             
         } else if (val === 'live2d') {
             videoElement.style.display = 'none';
-            document.body.style.backgroundImage = 'none';
+            document.body.style.backgroundImage = `url('/data/wallpaper-static.jpg?t=${Date.now()}')`;
             toggleButton.textContent = '切换静态';
             if (typeof startLive2D === 'function') startLive2D(); 
         }
