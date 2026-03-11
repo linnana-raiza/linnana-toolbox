@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>麟雫雫的工具箱</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+    <video id="bg-video" autoplay loop muted><source src="./assets/bg.mp4" type="video/mp4"></video>
+
+    <div id="top-controls">
+        <div id="search-container">
+            <input type="text" id="search-input" placeholder="输入关键字并回车...">
+            <button id="search-btn" class="control-btn" title="全局搜索">🔍</button>
+            <div id="search-results" class="glass-dropdown">
+                <ul id="search-results-list"></ul>
+            </div>
+        </div>
+        <button id="settings-btn" class="control-btn">⚙️</button>
+        <button id="wallpaper-toggle" class="control-btn">静态壁纸</button>
+        <button id="app-menu-btn" class="control-btn" title="应用菜单">应用</button>
+        <button id="stt-toggle-btn" class="control-btn" title="启动全局语音输入">语音转文字</button>
+    </div>
+
+    <div id="time-widget">
+        <div id="clock">00:00:00</div>
+        <div id="date-display"></div> 
+    </div>
+
+    <div id="todo-panel">
+        <div id="todo-icon" title="拖拽移动，点击展开">📝</div>
+        <div id="todo-content">
+            <div id="todo-header" title="拖拽移动，点击空白处最小化">
+                <div style="font-size: 1.1rem; pointer-events: none; font-weight: bold;">📝 ToDo</div>
+                <div style="display: flex; gap: 5px;">
+                    <button id="todo-add-btn" class="icon-btn">➕</button>
+                    <button id="todo-edit-mode-btn" class="icon-btn">⚙️</button>
+                </div>
+            </div>
+            <div id="todo-tabs">
+                <button class="tab-btn active" data-tab="pending">待办</button>
+                <button class="tab-btn" data-tab="completed">已完成</button>
+            </div>
+            <ul id="todo-list"></ul>
+        </div>
+    </div>
+
+    <div id="todo-modal" class="glass-modal">
+        <h2 id="todo-modal-title">新增待办</h2>
+        <input type="text" id="todo-modal-input" class="modal-input" placeholder="输入任务内容...">
+        <label style="font-size: 0.9rem; margin-bottom: 5px; display: block;">截止日期 (选填)</label>
+        <input type="date" id="todo-modal-date" class="modal-input">
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button id="todo-modal-cancel" class="close-btn" style="margin-top: 0;">取消</button>
+            <button id="todo-modal-save" class="control-btn primary" style="flex: 1; margin-top: 0; border:none; padding: 10px;">保存</button>
+        </div>
+    </div>
+
+    <div id="settings-modal">
+        <div class="settings-sidebar">
+            <h2>配置中心</h2>
+            <div id="settings-tabs-container"></div>
+        </div>
+        <div class="settings-content-area">
+            <button id="close-settings" class="close-settings-btn">×</button>
+            <div id="settings-form-container"></div>
+        </div>
+    </div>
+
+    <div id="app-menu-modal" class="glass-modal">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 10px; margin-bottom: 20px;">
+            <h2 style="margin: 0; border: none; padding: 0;">🚀 应用启动器</h2>
+            <div style="display: flex; gap: 10px;">
+                <button id="add-app-btn" class="control-btn primary" style="padding: 4px 12px; margin: 0;">➕ 添加应用</button>
+                <button id="close-app-menu" class="close-settings-btn" style="position: static; padding: 0;">×</button>
+            </div>
+        </div>
+        <div id="app-grid" class="app-grid"></div>
+    </div>
+
+    <script src="./assets/lib/pixi.min.js"></script>
+    <script src="./assets/lib/live2d.min.js"></script>
+    <script src="./assets/lib/live2dcubismcore.min.js"></script>
+    <script src="./assets/lib/index.min.js"></script>
+
+    <script src="./js/utils.js"></script>
+    <script src="./js/state.js"></script>
+    <script src="./js/wallpaper.js"></script>
+    <script src="./js/widgets.js"></script>
+    <script src="./js/settings.js"></script>
+    <script src="./js/todo.js"></script>
+    <script src="./js/launcher.js"></script>
+    <script src="./js/stt.js"></script>
+    <script src="./js/init.js"></script> 
+</body>
+</html>
