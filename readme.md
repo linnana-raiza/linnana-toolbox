@@ -25,6 +25,9 @@
 1. **克隆仓库 / 下载源码**:
 ```bash
 git clone [https://github.com/linnana-raiza/linnana-toolbox.git)
-
+```
 2. **运行**
 双击`start.bat`即可运行
+
+## 其他建议
+live2d可前往[Live2d-model](url=https://github.com/Eikanya/Live2d-model)
