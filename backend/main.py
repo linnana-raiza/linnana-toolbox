@@ -2,10 +2,12 @@ import os
 import sys
 import uvicorn
 import webview
+import asyncio
 import threading
 import time
 import mimetypes
 import ctypes
+import logging
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from dotenv import dotenv_values
@@ -22,6 +24,7 @@ from api.apps import router as apps_router
 from api.stt import router as stt_router
 from api.search import router as search_router
 from api.music import router as music_router
+from api.logs import router as logs_router
 
 mimetypes.add_type("audio/mpeg", ".mp3")
 mimetypes.add_type("audio/wav", ".wav")
@@ -38,12 +41,18 @@ app.include_router(apps_router, prefix="/api/apps")
 app.include_router(stt_router, prefix="/api/stt")
 app.include_router(search_router, prefix="/api/search")
 app.include_router(music_router, prefix="/api/music")
+app.include_router(logs_router, prefix="/api/logs")
 
 # 挂载前端静态页面
 app.mount("/data", StaticFiles(directory=data_dir), name="data")
 app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 
 def run_server():
+    # 修复核心：强制切换 Windows 下的 asyncio 事件循环策略，彻底消灭 10054 报错刷屏
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    logging.getLogger("asyncio").setLevel(logging.CRITICAL)  
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
 
 # ==========================================
@@ -83,29 +92,26 @@ def on_closed():
     except:
         pass
         
-    # 直接向操作系统发送终止信号，干掉 FastAPI 和所有残留线程
-    os._exit(0)
+    try:
+        kernel32 = ctypes.WinDLL('kernel32')
+        kernel32.TerminateProcess(kernel32.GetCurrentProcess(), 0)
+    except Exception:
+        os._exit()
 # ==========================================
 # 窗口事件 3：窗口显示时，强制注入自定义图标
 # ==========================================
 def on_shown():
     try:
-        # 指向你根目录的图标文件
         icon_path = os.path.join(root_dir, "linnana-toolbox.ico")
         if not os.path.exists(icon_path):
             return
             
-        # 1. 靠标题精确狙击我们的窗口句柄 (HWND)
         hwnd = ctypes.windll.user32.FindWindowW(None, "麟雫雫的工具箱")
         if hwnd:
-            # 2. 核心防错：必须设置返回值类型为 void_p，防止 64 位内存地址被 Python 截断！
             ctypes.windll.user32.LoadImageW.restype = ctypes.c_void_p
-            # 载入图标 (LR_LOADFROMFILE = 0x0010, IMAGE_ICON = 1)
             hicon = ctypes.windll.user32.LoadImageW(0, icon_path, 1, 0, 0, 0x0010)
             
             if hicon:
-                # 3. 发送替换图标的底层系统消息 (WM_SETICON = 0x0080)
-                # 分别替换任务栏的大图标 (1) 和窗口左上角的小图标 (0)
                 ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 0, ctypes.c_void_p(hicon))
                 ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 1, ctypes.c_void_p(hicon))
                 print("✨ 窗口自定义图标注入成功！")
@@ -113,6 +119,7 @@ def on_shown():
         print(f"⚠️ 注入图标失败: {e}")
 
 if __name__ == "__main__":
+
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
     

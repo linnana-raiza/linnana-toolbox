@@ -1,36 +1,84 @@
 import os
-import threading
-import gc
 import time
+import multiprocessing
+import threading
 import numpy as np
 import sounddevice as sd
 import keyboard
 import pyperclip
 
 from fastapi import APIRouter
-from pydantic import BaseModel
 from faster_whisper import WhisperModel
 from config import env_path, root_dir
 from dotenv import dotenv_values
+from api.logs import log_buffer
 
 router = APIRouter()
 
+# ==========================================
+# 🚀 核心：子进程推理函数
+# ==========================================
+def whisper_worker_process(input_queue, log_queue, model_size, device, compute_type, model_dir):
+    def log(msg):
+        # 将信息推送到跨进程队列
+        log_queue.put(f"🧬 [STT子进程] {msg}\n")
+
+    try:
+        log(f"正在初始化模型 (Size: {model_size}, Device: {device})...")
+        model = WhisperModel(
+            model_size, 
+            device=device, 
+            compute_type=compute_type,
+            download_root=model_dir
+        )
+        log("✅ 模型加载完毕，等待音频输入...")
+        
+        while True:
+            audio_np = input_queue.get()
+            if audio_np is None:
+                break
+                
+            try:
+                segments, _ = model.transcribe(
+                    audio_np, 
+                    beam_size=5, 
+                    language="zh",
+                    initial_prompt="这是一段简体中文的对话记录。"
+                )
+                text = "".join([segment.text for segment in segments]).strip()
+                
+                if text:
+                    pyperclip.copy(text) 
+                    log(f"📝 识别结果已复制: {text}") 
+                    print("\a") # 系统提示音依然走 stdout
+            except Exception as e:
+                log(f"❌ 推理异常: {e}")
+                
+    except Exception as e:
+        log(f"💥 致命错误: {e}")
+
+# ==========================================
+# 🎙️ STT 管理单例
+# ==========================================
 class STTManager:
     def __init__(self):
-        self.model = None
+        self.worker_process = None
+        self.input_queue = None
+        self.log_queue = None
         self.is_running = False
         self.is_recording = False
-        self.is_transcribing = False # 🚀 新增：推理状态锁
         self.stream = None
         self.audio_data = []
         self.sample_rate = 16000
         
     def get_config(self):
+        """实时从 .env 获取最新配置"""
         env_vars = dotenv_values(env_path)
         hotkey = env_vars.get("STT_HOTKEY", "f4").lower().strip("'\"")
         model_size = env_vars.get("STT_MODEL_SIZE", "base").strip("'\"")
         device = env_vars.get("STT_DEVICE", "cpu").strip("'\"").lower()
         
+        # CPU 模式下强制使用 int8 量化以节省内存
         compute_type = "int8" if device == "cpu" else "default"
         return hotkey, model_size, device, compute_type
 
@@ -38,74 +86,103 @@ class STTManager:
         if self.is_running: return
         
         hotkey, model_size, device, compute_type = self.get_config()
-        print(f"🎙️ 正在加载 Faster-Whisper ({model_size}) 模型，运行设备: [{device.upper()}] ...")
+        model_dir = os.path.join(root_dir, "models")
+        os.makedirs(model_dir, exist_ok=True)
+
+        # 1. 创建进程间通信队列
+        self.input_queue = multiprocessing.Queue()
+        self.log_queue = multiprocessing.Queue()
+
+        def log_listener():
+            while self.is_running:
+                try:
+                    msg = self.log_queue.get(timeout=1)
+                    if msg: log_buffer.append(msg)
+                except:
+                    continue
         
-        if self.model is None:
-            # 🚀 新增：定义工具箱目录下的模型专属文件夹
-            model_dir = os.path.join(root_dir, "models")
-            os.makedirs(model_dir, exist_ok=True) # 如果没有这个文件夹就自动创建
-            
-            # 🚀 新增：通过 download_root 强制改变下载和读取路径
-            self.model = WhisperModel(
-                model_size, 
-                device=device, 
-                compute_type=compute_type,
-                download_root=model_dir  # 👈 魔法参数在这里！
-            )
-            
+        # 2. 启动推理子进程
+        self.worker_process = multiprocessing.Process(
+            target=whisper_worker_process,
+            args=(self.input_queue, self.log_queue, model_size, device, compute_type, model_dir),
+            daemon=True
+        )
+        self.worker_process.start()
+
         self.is_running = True
+        threading.Thread(target=log_listener, daemon=True).start()
         
-        keyboard.on_press_key(hotkey, self.on_key_down)
-        keyboard.on_release_key(hotkey, self.on_key_up)
-        print(f"✅ 语音转文字服务已就绪！长按 [{hotkey.upper()}] 开始说话。")
+        # 3. 绑定全局快捷键 (需管理员权限)
+        try:
+            keyboard.on_press_key(hotkey, self.on_key_down)
+            keyboard.on_release_key(hotkey, self.on_key_up)
+            self.is_running = True
+            print(f"✅ 语音转文字服务已就绪！长按 [{hotkey.upper()}] 说话。")
+        except Exception as e:
+            self.stop_service()
+            print(f"❌ 快捷键绑定失败: {e}")
+            raise RuntimeError(f"快捷键绑定失败，请尝试管理员身份运行。")
 
     def stop_service(self):
-        if not self.is_running: return
-        
-        # 1. 先把运行状态标为 False，阻止新的录音，并解绑快捷键
+        """关闭服务并彻底抹除内存占用"""
         self.is_running = False
+        
+        # 1. 解除键盘钩子
         try:
             keyboard.unhook_all()
-        except Exception as e:
-            print(f"⚠️ 解绑快捷键时出现小错误: {e}")
+        except:
+            pass
             
-        print("🛑 正在准备关闭语音服务...")
-
-        # 🚀 核心防闪退修复：如果后台还在推理，强制等待它算完，绝不能现在拔电源
-        while getattr(self, 'is_transcribing', False):
-            print("⏳ 正在等待最后一句语音识别完成，以安全释放模型...")
-            time.sleep(0.2)
-            
-        # 🚀 修复2：强制结束可能还在活跃的麦克风流
+        # 2. 停止并销毁音频流
         if self.stream:
-            self.stream.stop()
-            self.stream.close()
+            try:
+                self.stream.stop()
+                self.stream.close()
+            except:
+                pass
             self.stream = None
 
-        # 2. 现在确认没有任何人在使用模型了，安全销毁
-        if self.model is not None:
-            del self.model
-            self.model = None
-            gc.collect() # 呼叫 Python 垃圾回收器清理现场
+        # 3. 核心：强杀推理子进程
+        if self.worker_process:
+            print("🛑 正在关闭推理进程并物理回收内存...")
+            # 发送 None 尝试优雅退出，若无响应则直接干掉
+            try:
+                self.input_queue.put(None) 
+                self.worker_process.terminate() 
+                self.worker_process.join(timeout=1)
+            except:
+                pass
+            self.worker_process = None
+            self.input_queue = None
             
-        print("✅ 语音服务已安全关闭，模型已从内存/显存中彻底卸载。")
+        self.audio_data = []
+        print("✨ 语音服务已完全卸载，内存已吐出。")
 
     def on_key_down(self, event):
-        # 只有在没有录音且服务运行中，才开始录音
         if not self.is_recording and self.is_running:
             self.start_recording()
 
     def on_key_up(self, event):
-        # 松开按键时停止录音并触发识别
         if self.is_recording:
             self.stop_recording()
 
     def start_recording(self):
         self.is_recording = True
         self.audio_data = []
-        print("🔴 正在聆听...")
-        self.stream = sd.InputStream(samplerate=self.sample_rate, channels=1, dtype='float32', callback=self.audio_callback)
-        self.stream.start()
+        print("🔴 录音中...")
+        try:
+            # blocksize 设置为采样率的 0.1s，确保跨平台稳定性
+            self.stream = sd.InputStream(
+                samplerate=self.sample_rate, 
+                channels=1, 
+                dtype='float32', 
+                blocksize=int(self.sample_rate * 0.1),
+                callback=self.audio_callback
+            )
+            self.stream.start()
+        except Exception as e:
+            print(f"❌ 麦克风启动失败: {e}")
+            self.is_recording = False
 
     def stop_recording(self):
         self.is_recording = False
@@ -113,48 +190,22 @@ class STTManager:
             self.stream.stop()
             self.stream.close()
             self.stream = None
-        print("⏳ 正在识别...")
         
-        # 🚀 核心优化：如果上一个音频还在推理中，直接拦截新的推理请求
-        if not self.is_transcribing:
-            self.is_transcribing = True
-            threading.Thread(target=self.transcribe_worker, daemon=True).start()
+        print("⏳ 正在识别...")
+        if self.audio_data and self.input_queue:
+            # 合并音频片段并推送到子进程进行推理
+            audio_np = np.concatenate(self.audio_data, axis=0).flatten()
+            self.input_queue.put(audio_np)
 
     def audio_callback(self, indata, frames, time, status):
         if self.is_recording:
-            # 安全锁：限制最大录音长度，防止卡键导致内存溢出 (OOM)
-            # 16000 采样率下单次 callback 包含一定 frames
-            # len=1500 大约对应 30~60 秒的录音，足够绝大多数快捷输入场景
-            if len(self.audio_data) < 1500:
+            # 限制最大录音时长（约 60 秒），防止内存溢出
+            if len(self.audio_data) < 600:
                 self.audio_data.append(indata.copy())
             else:
-                print("⚠️ 达到最大录音时长限制，为了保护内存，强制停止并开始识别！")
                 self.stop_recording()
 
-    def transcribe_worker(self):
-        try:
-            if not self.audio_data or self.model is None: return
-            
-            audio_np = np.concatenate(self.audio_data, axis=0).flatten()
-            segments, _ = self.model.transcribe(
-                audio_np, 
-                beam_size=5, 
-                language="zh",
-                initial_prompt="这是一段简体中文的对话记录。"
-            )
-            text = "".join([segment.text for segment in segments]).strip()
-            
-            if text:
-                pyperclip.copy(text) 
-                print(f"📝 识别成功 (已复制): {text}")
-                print("\a") # 触发系统提示音
-        except Exception as e:
-            print(f"❌ 推理过程发生异常: {e}")
-        finally:
-            # 🚀 核心优化：无论推理成功还是因报错中断，都必须释放锁
-            self.is_transcribing = False
-
-# 实例化全局单例
+# 实例化单例
 stt_manager = STTManager()
 
 @router.post("/toggle")
@@ -163,8 +214,11 @@ def toggle_stt():
         stt_manager.stop_service()
         return {"status": "stopped", "message": "服务已关闭"}
     else:
-        stt_manager.start_service()
-        return {"status": "started", "message": "服务已启动"}
+        try:
+            stt_manager.start_service()
+            return {"status": "started", "message": "服务已启动"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
 @router.get("/status")
 def get_stt_status():

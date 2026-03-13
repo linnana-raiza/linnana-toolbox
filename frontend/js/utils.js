@@ -2,6 +2,19 @@
 // utils.js: 核心工具与网络通信
 // ==========================================
 
+window.EventBus = {
+    listeners: {},
+    on(event, callback) {
+        if (!this.listeners[event]) this.listeners[event] = [];
+        this.listeners[event].push(callback);
+    },
+    emit(event, data) {
+        if (this.listeners[event]) {
+            this.listeners[event].forEach(cb => cb(data));
+        }
+    }
+};
+
 // 新增：安全的异步请求封装，防止 JSON 解析报错卡死主线程
 async function safeFetchJson(url, options = {}) {
     try {
@@ -19,8 +32,7 @@ async function safeFetchJson(url, options = {}) {
 
 function cleanVal(val) {
     if (typeof val !== 'string') return val;
-    let cleaned = val.split(' #')[0].trim();
-    return cleaned.replace(/^['"]+|['"]+$/g, '').trim();
+    return val.replace(/^['"]+|['"]+$/g, '').trim();
 }
 
 async function performSave(key, value) {
@@ -47,17 +59,21 @@ function debouncedSave(key, value) {
     }, 2000);
 }
 
-// 新增：在进程被杀前，强制把所有挂起的任务用更底层的 sendBeacon 丢给后端
 window.flushPendingSaves = function() {
     for (const key in pendingSaves) {
         clearTimeout(debounceTimers[key]);
-        const data = JSON.stringify({ key: key, value: String(pendingSaves[key]) });
-        const blob = new Blob([data], { type: 'application/json' });
-        // sendBeacon 即使页面正在卸载也能把数据射出去
-        navigator.sendBeacon('/api/settings/save-setting', blob);
+        const payload = JSON.stringify({ key: key, value: String(pendingSaves[key]) });
+        
+        // 使用带 keepalive 的 fetch 替代 sendBeacon，完美适配 FastAPI 的 JSON 解析
+        fetch('/api/settings/save-setting', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true 
+        }).catch(e => console.error("紧急保存失败:", e));
     }
 }
-// 🚀 新增：利用浏览器原生生命周期，在窗口即将被关闭的瞬间自动把数据射出去
+
 window.addEventListener('beforeunload', () => {
     if (typeof window.flushPendingSaves === "function") {
         window.flushPendingSaves();

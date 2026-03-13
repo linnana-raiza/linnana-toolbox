@@ -22,13 +22,6 @@ searchBtn.addEventListener('click', (e) => {
     else { searchInput.value = ''; searchResultsPanel.classList.remove('show'); }
 });
 
-document.addEventListener('click', (e) => {
-    if (!searchContainer.contains(e.target)) {
-        if (searchContainer.classList.contains('active') && searchInput.value.trim() === '') searchContainer.classList.remove('active');
-        searchResultsPanel.classList.remove('show');
-    }
-});
-
 let searchTimeout;
 searchInput.addEventListener('input', (e) => {
     clearTimeout(searchTimeout);
@@ -40,7 +33,7 @@ searchInput.addEventListener('input', (e) => {
         searchResultsPanel.classList.add('show');
         
         try {
-            const results = await safeFetchJson(`/api/search?q=${encodeURIComponent(query)}`);
+            const results = await safeFetchJson(`/api/search/search?q=${encodeURIComponent(query)}`);
             if (results.error) { searchResultsList.innerHTML = `<div class="search-empty">⚠️ 请求失败</div>`; return; }
             
             if (results.length === 0) { searchResultsList.innerHTML = '<div class="search-empty">没有找到相关文件</div>'; return; }
@@ -61,7 +54,7 @@ searchInput.addEventListener('input', (e) => {
                     searchContainer.classList.remove('active');
                     searchInput.value = ''; 
                     try {
-                        const result = await safeFetchJson('/api/open-file', {
+                        const result = await safeFetchJson('/api/search/open-file', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ path: fullPath })
@@ -76,3 +69,41 @@ searchInput.addEventListener('input', (e) => {
         }
     }, 500); 
 });
+
+// ==========================================
+// 运行日志面板逻辑
+// ==========================================
+const logModal = document.getElementById('log-modal');
+const logBtn = document.getElementById('log-btn');
+const closeLogBtn = document.getElementById('close-log-btn');
+const logContent = document.getElementById('log-content');
+let logInterval = null;
+
+logBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    logModal.classList.add('show');
+    fetchLogs(); // 立即拉取一次
+    // 只要面板打开着，就每秒去后端取一次最新日志
+    logInterval = setInterval(fetchLogs, 1000);
+});
+
+closeLogBtn.addEventListener('click', () => {
+    logModal.classList.remove('show');
+    if (logInterval) clearInterval(logInterval); // 关闭面板时停止拉取，节省性能
+});
+
+async function fetchLogs() {
+    const data = await safeFetchJson('/api/logs/get-logs?t=' + Date.now());
+    if (!data.error) {
+        // 🚀 新增性能锁：只有当日志内容真正发生变化时，才去触发 DOM 渲染
+        if (logContent.textContent !== data.logs) {
+            const isAtBottom = logContent.scrollHeight - logContent.scrollTop <= logContent.clientHeight + 20;
+            
+            logContent.textContent = data.logs;
+            
+            if (isAtBottom) {
+                logContent.scrollTop = logContent.scrollHeight;
+            }
+        }
+    }
+}

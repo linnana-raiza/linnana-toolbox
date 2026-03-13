@@ -9,7 +9,7 @@ window.onload = async function() {
         for (const [key, value] of Object.entries(settings)) { 
             const cleanValue = cleanVal(value);
             // applyVisualEffect 定义在 core.js 中
-            if (applyVisualEffect[key]) applyVisualEffect[key](cleanValue); 
+            window.EventBus.emit('SETTING_CHANGED', { key: key, value: cleanValue }); 
         }
     } catch (error) { console.error("读取基础配置失败", error); }
     
@@ -21,28 +21,36 @@ window.onload = async function() {
     checkSttStatus();       // 来自 stt.js
 };
 
-// ==========================================
-// 全局交互优化：点击空白处关闭弹窗面板
-// ==========================================
 document.addEventListener('pointerdown', (e) => {
-    // 获取需要控制的面板和对应的触发按钮
-    const settingsModal = document.getElementById('settings-modal');
-    const appMenuModal = document.getElementById('app-menu-modal');
-    const settingsBtn = document.getElementById('settings-btn');
-    const appMenuBtn = document.getElementById('app-menu-btn');
+    // 定义所有需要具备“点击空白处关闭”特性的面板及其对应的触发按钮
+    const panels = [
+        { modalId: 'settings-modal', btnId: 'settings-btn' },
+        { modalId: 'app-menu-modal', btnId: 'app-menu-btn' },
+        { modalId: 'log-modal', btnId: 'log-btn' },
+        { modalId: 'music-list-panel', btnId: 'music-list-btn' },
+        { modalId: 'search-container', btnId: 'search-btn', isClassActive: true },
+        { modalId: 'search-results', btnId: 'search-btn' } // 搜索结果面板
+    ];
 
-    // 如果设置面板是打开的
-    if (settingsModal && settingsModal.classList.contains('show')) {
-        // 点击的位置既不在面板内，也不是顶部的齿轮按钮，就关闭它
-        if (!settingsModal.contains(e.target) && !settingsBtn.contains(e.target)) {
-            settingsModal.classList.remove('show');
-        }
-    }
+    panels.forEach(({ modalId, btnId, isClassActive }) => {
+        const modal = document.getElementById(modalId);
+        const btn = document.getElementById(btnId);
+        
+        if (!modal || !btn) return;
 
-    // 同理，如果应用启动器是打开的
-    if (appMenuModal && appMenuModal.classList.contains('show')) {
-        if (!appMenuModal.contains(e.target) && !appMenuBtn.contains(e.target)) {
-            appMenuModal.classList.remove('show');
+        const isOpen = isClassActive ? modal.classList.contains('active') : modal.classList.contains('show');
+        
+        // 如果面板开着，且点击的目标既不在面板内，也不在触发按钮内
+        if (isOpen && !modal.contains(e.target) && !btn.contains(e.target)) {
+            if (isClassActive) {
+                // 特殊处理搜索框的 active 状态
+                const searchInput = document.getElementById('search-input');
+                if (searchInput && searchInput.value.trim() === '') {
+                    modal.classList.remove('active');
+                }
+            } else {
+                modal.classList.remove('show');
+            }
         }
-    }
+    });
 });

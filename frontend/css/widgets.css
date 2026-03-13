@@ -1,0 +1,32 @@
+/* ==========================================
+   widgets.css: 桌面悬浮小部件 (时钟、日志)
+========================================== */
+
+/* 桌面时钟 */
+#time-widget { 
+    position: absolute; bottom: 40px; right: 50px; text-align: right; z-index: 5; 
+}
+#clock { 
+    font-size: 5rem; text-shadow: 2px 2px 8px rgba(0,0,0,0.5); 
+    margin-bottom: 5px; font-variant-numeric: tabular-nums; 
+    transition: font-size 0.2s, color 0.2s; 
+}
+#date-display { 
+    font-size: 1.25rem; opacity: 1; text-shadow: 1px 1px 4px rgba(0,0,0,0.5); 
+    transition: font-size 0.2s, color 0.2s; 
+    font-family: 'Waterfall', 'Segoe UI', Arial, sans-serif; 
+}
+
+/* 运行日志面板内容区 (外层窗口复用了 base.css 的 glass-modal) */
+#log-content {
+    height: 350px; 
+    overflow-y: auto; 
+    background: rgba(0,0,0,0.6); 
+    border-radius: 8px; 
+    padding: 12px; 
+    font-family: Consolas, monospace; 
+    font-size: 13px; 
+    color: #a3be8c; 
+    white-space: pre-wrap; 
+    word-wrap: break-word;
+}

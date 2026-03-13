@@ -42,12 +42,14 @@ async function saveTodosToServer() {
     
     saveTodoTimer = setTimeout(async () => {
         try { 
-            await fetch('/api/todo/save-todos', { 
+            const result = await safeFetchJson('/api/todo/save-todos', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify(todos) 
             }); 
-            console.log("💾 待办列表已同步到本地");
+            if (!result.error) {
+                console.log("💾 待办列表已同步到本地");
+            }
         } catch (error) { 
             console.error("保存失败", error); 
         }

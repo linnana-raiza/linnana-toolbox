@@ -9,12 +9,10 @@ from dotenv import load_dotenv
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(backend_dir)
 frontend_dir = os.path.join(root_dir, "frontend")
-assets_dir = os.path.join(frontend_dir, "assets")
 data_dir = os.path.join(root_dir, "data")
 env_path = os.path.join(root_dir, ".env")
 
 # 确保 assets 文件夹存在并加载 .env
-os.makedirs(assets_dir, exist_ok=True)
 os.makedirs(data_dir, exist_ok=True)
 load_dotenv(env_path)
 

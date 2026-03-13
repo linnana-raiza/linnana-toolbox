@@ -125,3 +125,12 @@ const applyVisualEffect = {
         }
     }
 };
+
+// 统一在 state.js 内部监听配置变化并执行特效，彻底与其余模块解耦
+if (window.EventBus) {
+    window.EventBus.on('SETTING_CHANGED', ({ key, value }) => {
+        if (applyVisualEffect[key]) {
+            applyVisualEffect[key](value);
+        }
+    });
+}

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from dotenv import dotenv_values
 
 # 引入核心配置
-from config import env_path, assets_dir, data_dir, env_file_lock
+from config import env_path, data_dir, env_file_lock
 
 router = APIRouter()
 
@@ -51,18 +51,18 @@ def update_env_key(key: str, value: str):
 @router.get("/get-all-settings")
 def get_all_settings():
     settings = {}
-    if not os.path.exists(env_path):
-        return settings
-        
-    with open(env_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-            # 只提取纯净的 Value 值，抛弃后面的 # 注释
-            match = re.match(r'^([A-Za-z0-9_]+)=([\'"]?)(.*?)\2(?:\s+#.*)?$', line)
-            if match:
-                settings[match.group(1)] = match.group(3)
+    with env_file_lock:
+        if not os.path.exists(env_path):
+            return settings
+            
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                match = re.match(r'^([A-Za-z0-9_]+)=([\'"]?)(.*?)\2(?:\s+#.*)?$', line)
+                if match:
+                    settings[match.group(1)] = match.group(3)
     return settings
 
 # ==========================================
@@ -72,38 +72,38 @@ def get_all_settings():
 def get_settings_schema():
     schema = []
     current_category = None
-    if not os.path.exists(env_path): return schema
+    with env_file_lock:
+        if not os.path.exists(env_path): return schema
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                cat_match = re.match(r'^##\s+(.+?)\s+BEGIN(?:\s+#\s*(.*))?$', line)
+                if cat_match:
+                    current_category = {
+                        "category_name": cat_match.group(1).strip(),
+                        "category_desc": cat_match.group(2).strip() if cat_match.group(2) else "",
+                        "settings": []
+                    }
+                    continue
 
-    with open(env_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            cat_match = re.match(r'^##\s+(.+?)\s+BEGIN(?:\s+#\s*(.*))?$', line)
-            if cat_match:
-                current_category = {
-                    "category_name": cat_match.group(1).strip(),
-                    "category_desc": cat_match.group(2).strip() if cat_match.group(2) else "",
-                    "settings": []
-                }
-                continue
+                if re.match(r'^##\s+(.+?)\s+END$', line):
+                    if current_category:
+                        schema.append(current_category)
+                        current_category = None
+                    continue
 
-            if re.match(r'^##\s+(.+?)\s+END$', line):
-                if current_category:
-                    schema.append(current_category)
-                    current_category = None
-                continue
+                kv_match = re.match(r'^([A-Za-z0-9_]+)=[\'"]?(.*?)[\'"]?(?:\s+#\s*(.*))?$', line)
+                if kv_match and current_category is not None:
+                    schema_key = kv_match.group(1)
+                    schema_value = kv_match.group(2)
+                    schema_desc = kv_match.group(3).strip() if kv_match.group(3) else "暂无描述"
+                    current_category["settings"].append({
+                        "key": schema_key, "value": schema_value, "description": schema_desc
+                    })
 
-            kv_match = re.match(r'^([A-Za-z0-9_]+)=[\'"]?(.*?)[\'"]?(?:\s+#\s*(.*))?$', line)
-            if kv_match and current_category is not None:
-                schema_key = kv_match.group(1)
-                schema_value = kv_match.group(2)
-                schema_desc = kv_match.group(3).strip() if kv_match.group(3) else "暂无描述"
-                current_category["settings"].append({
-                    "key": schema_key, "value": schema_value, "description": schema_desc
-                })
-
-    if current_category and len(current_category["settings"]) > 0:
-        schema.append(current_category)
-    return schema
+        if current_category and len(current_category["settings"]) > 0:
+            schema.append(current_category)
+        return schema
 
 # ==========================================
 # 自动扫描并获取所有 Live2D 模型列表 (完美兼容 Cubism 2 & 3/4)
@@ -121,8 +121,7 @@ def get_live2d_models():
             # 🚀 核心改动：同时兼容 .model.json (老版) 和 .model3.json (新版)
             if file.endswith(".model3.json") or file.endswith(".model.json"):
                 full_path = os.path.join(root, file)
-                # 获取相对于 assets 的相对路径 (前端加载模型需要这个)
-                rel_path = os.path.relpath(full_path, assets_dir).replace("\\", "/")  
+                rel_path = os.path.relpath(full_path, data_dir).replace("\\", "/")  
                 # 改动：计算当前文件夹 (root) 相对于 live2d 根目录的路径
                 name = os.path.relpath(root, live2d_dir).replace("\\", "/")
                 

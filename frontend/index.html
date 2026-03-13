@@ -5,7 +5,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>麟雫雫的工具箱</title>
-    <link rel="stylesheet" href="./css/style.css">
+
+    <link rel="stylesheet" href="./css/base.css">
+    <link rel="stylesheet" href="./css/layout.css">
+    <link rel="stylesheet" href="./css/search.css">
+    <link rel="stylesheet" href="./css/settings.css">
+    <link rel="stylesheet" href="./css/todo.css">
+    <link rel="stylesheet" href="./css/launcher.css">
+    <link rel="stylesheet" href="./css/music.css">
+    <link rel="stylesheet" href="./css/widgets.css">
+    
 </head>
 <body>
     <video id="bg-video" autoplay loop muted><source src="/data/wallpaper-dynamic.mp4" type="video/mp4"></video>
@@ -14,7 +23,7 @@
         <div id="search-container">
             <input type="text" id="search-input" placeholder="输入关键字并回车...">
             <button id="search-btn" class="control-btn" title="全局搜索">🔍</button>
-            <div id="search-results" class="glass-dropdown">
+            <div id="search-results" class="glass-dropdown glass-widget">
                 <ul id="search-results-list"></ul>
             </div>
         </div>
@@ -22,6 +31,7 @@
         <button id="wallpaper-toggle" class="control-btn">静态壁纸</button>
         <button id="app-menu-btn" class="control-btn" title="应用菜单">应用</button>
         <button id="stt-toggle-btn" class="control-btn" title="启动全局语音输入">语音转文字</button>
+        <button id="log-btn" class="control-btn" title="查看运行日志">日志</button>
     </div>
 
     <div id="time-widget">
@@ -29,7 +39,7 @@
         <div id="date-display"></div> 
     </div>
 
-    <div id="music-widget">
+    <div id="music-widget" class="glass-widget">
         <div class="music-info">
             <div id="music-title" title="将音乐放入 data/music 目录">🎵 暂无音乐</div>
             <div id="music-time">00:00 / 00:00</div>
@@ -47,13 +57,13 @@
             </div>
             <button id="music-list-btn" class="icon-btn" title="播放列表">📜</button>
         </div>
-        <div id="music-list-panel">
+        <div id="music-list-panel" class="glass-widget">
             <ul id="music-list" style="list-style: none; padding: 0; margin: 0;"></ul>
         </div>
         <audio id="audio-player" style="display: none;"></audio>
     </div>
 
-    <div id="todo-panel">
+    <div id="todo-panel" class="glass-widget">
         <div id="todo-icon" title="拖拽移动，点击展开">📝</div>
         <div id="todo-content">
             <div id="todo-header" title="拖拽移动，点击空白处最小化">
@@ -82,7 +92,7 @@
         </div>
     </div>
 
-    <div id="settings-modal">
+    <div id="settings-modal" class="glass-modal">
         <div class="settings-sidebar">
             <h2>配置中心</h2>
             <div id="settings-tabs-container"></div>
@@ -104,10 +114,18 @@
         <div id="app-grid" class="app-grid"></div>
     </div>
 
-    <script src="./assets/lib/pixi.min.js"></script>
-    <script src="./assets/lib/live2d.min.js"></script>
-    <script src="./assets/lib/live2dcubismcore.min.js"></script>
-    <script src="./assets/lib/index.min.js"></script>
+    <div id="log-modal" class="glass-modal">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 10px; margin-bottom: 10px;">
+            <h2 style="margin: 0; border: none; padding: 0;">📜 后台运行日志</h2>
+            <button id="close-log-btn" class="close-settings-btn" style="position: static; padding: 0;">×</button>
+        </div>
+        <div id="log-content" style="height: 350px; overflow-y: auto; background: rgba(0,0,0,0.6); border-radius: 8px; padding: 12px; font-family: Consolas, monospace; font-size: 13px; color: #a3be8c; white-space: pre-wrap; word-wrap: break-word;"></div>
+    </div>
+
+    <script src="./lib/pixi.min.js"></script>
+    <script src="./lib/live2d.min.js"></script>
+    <script src="./lib/live2dcubismcore.min.js"></script>
+    <script src="./lib/index.min.js"></script>
 
     <script src="./js/utils.js"></script>
     <script src="./js/state.js"></script>

@@ -27,7 +27,7 @@ async function fetchApps() {
 function getIconElement(iconPath) {
     if (iconPath === 'folder') return `<div class="fallback-icon">📁</div>`;
     if (iconPath === 'default') return `<div class="fallback-icon">⚙️</div>`;
-    return `<img src="./assets/${iconPath}?t=${Date.now()}" alt="icon" onerror="this.outerHTML='<div class=\\'fallback-icon\\'>⚙️</div>'">`;
+    return `<img src="./data/${iconPath}?t=${Date.now()}" alt="icon" onerror="this.outerHTML='<div class=\\'fallback-icon\\'>⚙️</div>'">`;
 }
 
 function renderApps() {
@@ -52,7 +52,7 @@ function renderApps() {
         item.onclick = async (e) => {
             if (e.target.classList.contains('app-delete-btn')) return; 
             try {
-                const result = await safeFetchJson('/api/open-file', {
+                const result = await safeFetchJson('/api/search/open-file', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ path: app.path })
@@ -70,12 +70,14 @@ function renderApps() {
             } catch (err) { console.error("打开应用失败", err); }
         };
 
-        // 💡 这里的 save 请求只发送数据，不需要 json() 解析，所以保留原生 fetch
         item.querySelector('.app-delete-btn').onclick = async () => {
             launcherApps.splice(index, 1);
             renderApps();
-            await fetch('/api/apps/save', { 
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(launcherApps) 
+            // 使用安全封装替换原生 fetch
+            await safeFetchJson('/api/apps/save', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(launcherApps) 
             });
         };
         appGrid.appendChild(item);
@@ -91,13 +93,13 @@ addAppBtn.addEventListener('click', async () => {
     try {
         const data = await safeFetchJson('/api/apps/pick-file');
         
-        // 确保没有网络报错，且业务状态为成功
         if (!data.error && data.status === 'success') {
             launcherApps.push(data.app);
             renderApps();
-            // 💡 这里的 save 同样只发送不解析，保留原生 fetch
-            await fetch('/api/apps/save', { 
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(launcherApps) 
+            await safeFetchJson('/api/apps/save', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(launcherApps) 
             });
         }
     } catch (e) {

@@ -35,7 +35,7 @@ class FileOpenData(BaseModel):
 # 路由接口
 # ==========================================
 @router.get("/search")
-async def perform_search(q: str, limit: int = 15):
+def perform_search(q: str, limit: int = 15):
     if not EVERYTHING_OK:
         return {"error": "Everything 服务未就绪"}
         
@@ -55,7 +55,7 @@ async def perform_search(q: str, limit: int = 15):
 
 # 🔥 完美移植 main.py 中带工作目录修复的版本
 @router.post("/open-file")
-async def open_local_file(data: FileOpenData):
+def open_local_file(data: FileOpenData):
     try:
         if os.path.exists(data.path):
             ext = os.path.splitext(data.path)[1].lower()

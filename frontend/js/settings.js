@@ -1,5 +1,5 @@
 // ==========================================
-// settings.js: 动态设置面板解析与渲染
+// settings.js: 动态设置面板解析与渲染 (升级下拉框与按键绑定)
 // ==========================================
 let settingsSchema = [];
 const settingsModal = document.getElementById('settings-modal');
@@ -71,13 +71,31 @@ function renderSettingsForm(categoryIndex) {
                     </label>
                 `;
             } else if (type === 'select') {
-                // 🚀 新增：渲染下拉框结构
                 const dataSource = tags[1]; 
-                inputHtml = `
-                    <select class="dynamic-select" data-env-key="${setting.key}" data-source="${dataSource}" data-current-value="${displayValue}" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; outline: none; cursor: pointer;">
-                        <option value="${displayValue}">⏳ 正在扫描本地模型...</option>
-                    </select>
-                `;
+                // 🚀 核心升级 1：判断 dataSource 是否包含逗号，如果是，则渲染为静态选项
+                if (dataSource && dataSource.includes(',')) {
+                    const options = dataSource.split(',').map(opt => {
+                        const o = opt.trim();
+                        const isSelected = (o === displayValue) ? 'selected' : '';
+                        return `<option value="${o}" ${isSelected}>${o}</option>`;
+                    }).join('');
+                    
+                    inputHtml = `
+                        <select class="dynamic-select" data-env-key="${setting.key}" data-current-value="${displayValue}" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; outline: none; cursor: pointer;">
+                            ${options}
+                        </select>
+                    `;
+                } else {
+                    // 原有的动态拉取模型列表逻辑 (比如 live2d)
+                    inputHtml = `
+                        <select class="dynamic-select" data-env-key="${setting.key}" data-source="${dataSource}" data-current-value="${displayValue}" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; outline: none; cursor: pointer;">
+                            <option value="${displayValue}">⏳ 正在扫描本地模型...</option>
+                        </select>
+                    `;
+                }
+            } else if (type === 'hotkey') {
+                // 🚀 核心升级 2：新增快捷键捕获按钮
+                inputHtml = `<button class="dynamic-hotkey" data-env-key="${setting.key}" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.4); border: 1px dashed rgba(255,255,255,0.4); border-radius: 6px; color: #a3be8c; font-family: Consolas, monospace; cursor: pointer; text-align: center; font-size: 1rem; transition: 0.2s;">⌨️ ${displayValue}</button>`;
             } else {
                 inputHtml = `<input type="text" class="dynamic-input" data-env-key="${setting.key}" value="${displayValue}">`;
             }
@@ -101,7 +119,7 @@ function renderSettingsForm(categoryIndex) {
         input.addEventListener('input', function() {
             const key = this.getAttribute('data-env-key');
             const value = cleanVal(this.value); 
-            if (applyVisualEffect[key]) applyVisualEffect[key](value);
+            window.EventBus.emit('SETTING_CHANGED', { key, value });
             debouncedSave(key, value);
         });
     });
@@ -137,7 +155,7 @@ function renderSettingsForm(categoryIndex) {
         });
     });
 
-    // 3. 🚀 新增：为下拉框填充数据并绑定事件
+    // 3. 为下拉框填充数据并绑定事件
     formContainer.querySelectorAll('.dynamic-select').forEach(async select => {
         const source = select.getAttribute('data-source');
         const currentValue = select.getAttribute('data-current-value');
@@ -167,8 +185,60 @@ function renderSettingsForm(categoryIndex) {
         select.addEventListener('change', function() {
             const key = this.getAttribute('data-env-key');
             const value = this.value;
-            if (applyVisualEffect[key]) applyVisualEffect[key](value);
+            window.EventBus.emit('SETTING_CHANGED', { key, value }); 
             debouncedSave(key, value);
+        });
+    });
+
+    // 4. 🚀 核心升级 3：快捷键捕获逻辑
+    formContainer.querySelectorAll('.dynamic-hotkey').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const originalText = this.innerText;
+            this.innerText = "👀 请按下任意键 (按 ESC 取消)...";
+            this.style.color = "#fbd38d";
+            this.style.borderColor = "#fbd38d";
+            this.style.background = "rgba(0,0,0,0.8)";
+
+            const keydownHandler = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                let keyName = event.key.toLowerCase();
+                
+                // 适配 Python keyboard 模块的命名规范
+                if (keyName === 'escape') {
+                    // 取消绑定
+                    this.innerText = originalText;
+                    this.style.color = "#a3be8c";
+                    this.style.borderColor = "rgba(255,255,255,0.4)";
+                    this.style.background = "rgba(0,0,0,0.4)";
+                    document.removeEventListener('keydown', keydownHandler, true);
+                    return;
+                }
+                if (keyName === ' ') keyName = 'space';
+                if (keyName === 'control') keyName = 'ctrl';
+                
+                // 组合键拼接逻辑
+                let finalKey = keyName;
+                if (event.ctrlKey && keyName !== 'ctrl') finalKey = 'ctrl+' + keyName;
+                if (event.shiftKey && keyName !== 'shift') finalKey = 'shift+' + finalKey;
+                if (event.altKey && keyName !== 'alt') finalKey = 'alt+' + finalKey;
+
+                this.innerText = `⌨️ ${finalKey}`;
+                this.style.color = "#a3be8c";
+                this.style.borderColor = "rgba(255,255,255,0.4)";
+                this.style.background = "rgba(0,0,0,0.4)";
+                
+                document.removeEventListener('keydown', keydownHandler, true);
+                
+                const envKey = this.getAttribute('data-env-key');
+                window.EventBus.emit('SETTING_CHANGED', { key: envKey, value: finalKey });
+                debouncedSave(envKey, finalKey);
+            };
+
+            // 在捕获阶段拦截按键，防止触发其他系统默认行为
+            document.addEventListener('keydown', keydownHandler, true);
         });
     });
 }

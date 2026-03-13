@@ -1,0 +1,47 @@
+/* ==========================================
+   launcher.css: 应用抽屉与快捷方式网格
+========================================== */
+
+#app-menu-modal {
+    width: 600px !important; 
+    max-height: 500px; 
+    display: flex; 
+    flex-direction: column;
+}
+
+.app-grid {
+    display: grid !important; 
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)) !important; 
+    align-items: start;   
+    align-content: start; 
+    gap: 15px;
+    overflow-y: auto; 
+    padding-right: 5px; 
+    min-height: 250px;
+}
+
+.app-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 10px; border-radius: 12px; cursor: pointer; transition: 0.2s;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid transparent; position: relative;
+}
+.app-item:hover { background: rgba(255, 255, 255, 0.15); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
+
+.app-item img, .app-item .fallback-icon {
+    width: 48px; height: 48px; margin-bottom: 8px; object-fit: contain;
+    display: flex; align-items: center; justify-content: center; font-size: 38px;
+}
+.app-name { 
+    font-size: 0.8rem; text-align: center; color: white; word-break: break-all; 
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; 
+}
+
+/* 悬停显示的删除按钮 */
+.app-delete-btn {
+    position: absolute; top: -5px; right: -5px; background: #ef4444; color: white;
+    border: none; border-radius: 50%; width: 22px; height: 22px; font-size: 12px;
+    display: none; cursor: pointer; align-items: center; justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 2;
+}
+.app-item:hover .app-delete-btn { display: flex; }
+.app-delete-btn:hover { background: #dc2626; transform: scale(1.1); }
