@@ -5,12 +5,12 @@
 
 ## 核心功能 (Features)
 
-**应用启动器 (App Launcher)**：集中管理并快速启动常用桌面应用程序
-**待办事项 (To-Do List)**：可折叠和移动
-**本地语音转文字 (Voice-to-Text)**：集成了 **FasterWhisper** 模型，支持cpu和cuda推理
-**动态壁纸 (Live2D Wallpaper)**：支持自定义mp4或moc2和moc3格式的Live2D动态桌面壁纸，可在静态、动态、live2d壁纸间切换
-**本地文件快捷 (Local Search)**：搜索调用本地everything进行搜索，需要everything处于运行状态
-**音乐播放器(Music Player)**: 音乐自动扫描，历史自动记录
+* **应用启动器 (App Launcher)**：集中管理并快速启动常用桌面应用程序
+* **待办事项 (To-Do List)**：可折叠和移动
+* **本地语音转文字 (Voice-to-Text)**：集成了 **FasterWhisper** 模型，支持cpu和cuda推理
+* **动态壁纸 (Live2D Wallpaper)**：支持自定义mp4或moc2和moc3格式的Live2D动态桌面壁纸，可在静态、动态、live2d壁纸间切换
+* **本地文件快捷 (Local Search)**：搜索调用本地everything进行搜索，需要everything处于运行状态
+* **音乐播放器(Music Player)**: 音乐自动扫描，历史自动记录
 
 ## 💻 技术栈 (Tech Stack)
 
