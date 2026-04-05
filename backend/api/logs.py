@@ -67,7 +67,7 @@ class APILogStream:
         return False
         
     def fileno(self):
-        return -1
+        raise OSError("APILogStream does not have a file descriptor")
 
 # 劫持标准输出和错误输出
 sys.stdout = APILogStream(sys.__stdout__)

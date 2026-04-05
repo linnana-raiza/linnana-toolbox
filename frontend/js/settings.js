@@ -28,6 +28,48 @@ function renderSettingsSidebar() {
         tab.onclick = () => renderSettingsForm(index);
         tabsContainer.appendChild(tab);
     });
+    const pluginTab = document.createElement('div');
+    pluginTab.className = 'sidebar-tab';
+    pluginTab.style.marginTop = 'auto'; // 顶到最下面
+    pluginTab.style.borderTop = '1px solid rgba(255,255,255,0.1)';
+    pluginTab.innerHTML = '🧩 插件管理';
+    pluginTab.onclick = () => renderPluginManagementPage();
+    tabsContainer.appendChild(pluginTab);
+}
+
+async function renderPluginManagementPage() {
+    // 切换 Sidebar 状态
+    document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+    // 找到最后那个插件标签变高亮
+    document.querySelector('.sidebar-tab:last-child').classList.add('active');
+
+    const formContainer = document.getElementById('settings-form-container');
+    formContainer.innerHTML = `
+        <h3 class="settings-category-title">🧩 已激活插件</h3>
+        <p class="settings-category-desc">当前系统已成功装载的扩展模块列表</p>
+        <div id="plugin-list-container">加载中...</div>
+    `;
+
+    // 拉取最新的插件列表
+    const plugins = await safeFetchJson('/api/plugins/list?t=' + Date.now());
+    const listContainer = document.getElementById('plugin-list-container');
+    
+    if (plugins.length === 0) {
+        listContainer.innerHTML = "暂无激活插件";
+        return;
+    }
+
+    listContainer.innerHTML = plugins.map(p => `
+        <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; align-items: center; gap: 15px;">
+            <div style="font-size: 2rem;">${p.icon || '🧩'}</div>
+            <div style="flex: 1;">
+                <div style="font-weight: bold; font-size: 1.1rem;">${p.name} <span style="font-size: 0.8rem; opacity: 0.5;">v${p.version || '1.0.0'}</span></div>
+                <div style="font-size: 0.85rem; opacity: 0.7;">${p.description || '暂无描述'}</div>
+                <div style="font-size: 0.75rem; color: #3b82f6; margin-top: 5px;">类型: ${p.type === 'widget' ? '桌面挂件' : '窗口应用'}</div>
+            </div>
+            <div style="color: #68d391; font-size: 0.8rem;">● 已激活</div>
+        </div>
+    `).join('');
 }
 
 function renderSettingsForm(categoryIndex) {

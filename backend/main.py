@@ -8,11 +8,19 @@ import time
 import mimetypes
 import ctypes
 import logging
+import json
+import subprocess
+import importlib.metadata
+import re
+import importlib.util
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from dotenv import dotenv_values
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
+ADDS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "adds"))
+os.makedirs(ADDS_DIR, exist_ok=True)
+active_plugins = []
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
@@ -21,8 +29,6 @@ from config import env_path, frontend_dir, data_dir, root_dir, env_file_lock
 from api.todo import router as todo_router
 from api.settings import router as settings_router, update_env_key
 from api.apps import router as apps_router
-from api.stt import router as stt_router
-from api.search import router as search_router
 from api.music import router as music_router
 from api.logs import router as logs_router
 
@@ -38,10 +44,119 @@ app = FastAPI()
 app.include_router(settings_router, prefix="/api/settings")
 app.include_router(todo_router, prefix="/api/todo")
 app.include_router(apps_router, prefix="/api/apps")
-app.include_router(stt_router, prefix="/api/stt")
-app.include_router(search_router, prefix="/api/search")
 app.include_router(music_router, prefix="/api/music")
 app.include_router(logs_router, prefix="/api/logs")
+
+def setup_plugin_env(plugin_path, plugin_name):
+    """处理插件依赖：动态扫描全局与局部环境，只下载真正缺失的库"""
+    req_file = os.path.join(plugin_path, "requirements.txt")
+    libs_dir = os.path.join(plugin_path, "libs")
+
+    # 1. 优先挂载路径：让后续的检查和 import 都能同时覆盖全局和局部
+    if os.path.exists(libs_dir) and libs_dir not in sys.path:
+        sys.path.insert(0, libs_dir)
+
+    # 2. 如果没有 requirements.txt，直接放行
+    if not os.path.exists(req_file):
+        return True
+
+    # 3. 智能解析并探测环境
+    missing_packages = []
+    try:
+        with open(req_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'): 
+                    continue
+                
+                # 正则提取纯包名 (剥离掉版本号，例如 "faster-whisper==1.0" -> "faster-whisper")
+                match = re.match(r'^([A-Za-z0-9_\-]+)', line)
+                if match:
+                    pkg_name = match.group(1)
+                    try:
+                        # 🚀 核心：这行代码会同时扫描 python-embed 核心环境 和 插件的 libs 文件夹
+                        importlib.metadata.version(pkg_name) 
+                    except importlib.metadata.PackageNotFoundError:
+                        # 只有两边都找不到，才加入待下载清单 (保留原来的完整版本号条件)
+                        missing_packages.append(line)
+    except Exception as e:
+        print(f"⚠️ 解析依赖文件失败: {e}")
+        return False
+
+    # 4. 如果全都有了，毫秒级跳过
+    if not missing_packages:
+        return True
+
+    # 5. 触发精准安装：只下载缺失的孤儿包
+    pkg_names_only = [re.match(r'^([A-Za-z0-9_\-]+)', p).group(1) for p in missing_packages]
+    print(f"📦 插件 [{plugin_name}] 正在补充下载缺失依赖: {', '.join(pkg_names_only)}")
+    os.makedirs(libs_dir, exist_ok=True)
+
+    try:
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install", 
+            *missing_packages,              # 🚀 自动将列表展开为多个独立的包名参数
+            "--target", libs_dir,           # 安装到局部文件夹
+            "--disable-pip-version-check",  
+            "--quiet",                       
+            "-i", "https://pypi.tuna.tsinghua.edu.cn/simple" # 加载清华源，起飞！
+        ])
+        
+        # 再次确保路径挂载 (针对第一次创建 libs 的情况)
+        if libs_dir not in sys.path:
+            sys.path.insert(0, libs_dir)
+            
+        print(f"✅ 插件 [{plugin_name}] 依赖装配完毕！")
+        return True
+        
+    except subprocess.CalledProcessError as e:
+        print(f"❌ 插件 [{plugin_name}] 依赖下载失败: {e}")
+        return False
+
+def load_plugins(app):
+    print("🔌 正在扫描插件目录...")
+    for item in os.listdir(ADDS_DIR):
+        plugin_path = os.path.join(ADDS_DIR, item)
+        if os.path.isdir(plugin_path):
+            manifest_path = os.path.join(plugin_path, "manifest.json")
+            main_py_path = os.path.join(plugin_path, "main.py")
+            frontend_path = os.path.join(plugin_path, "frontend")
+            
+            if os.path.exists(manifest_path):
+                try:
+                    with open(manifest_path, 'r', encoding='utf-8') as f:
+                        manifest = json.load(f)
+                        manifest['id'] = item
+                        plugin_name = manifest.get('name', item) # 加个兜底，防止没有 name
+                    
+                    # 🔥 核心插入点：先配置并安装依赖，只有成功了才加载后端代码
+                    env_ready = setup_plugin_env(plugin_path, plugin_name)
+                    
+                    if env_ready and os.path.exists(main_py_path):
+                        # ... 原本的动态加载后端路由代码
+                        spec = importlib.util.spec_from_file_location(f"plugin_{item}", main_py_path)
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+                        
+                        if hasattr(module, 'router'):
+                            app.include_router(module.router, prefix=f"/api/adds/{item}", tags=[f"插件: {plugin_name}"])
+                    
+                    # ... 原本的动态挂载前端静态文件代码 (保持不变)
+                    if os.path.exists(frontend_path):
+                        app.mount(f"/adds_static/{item}", StaticFiles(directory=frontend_path), name=f"static_{item}")
+                        manifest['entry_url'] = f"/adds_static/{item}/index.html"
+                    else:
+                        manifest['entry_url'] = None
+                        
+                    active_plugins.append(manifest)
+                    print(f"✅ 成功加载插件: {plugin_name}")
+                    
+                except Exception as e:
+                    print(f"❌ 加载插件 {item} 失败: {e}")
+load_plugins(app)
+@app.get("/api/plugins/list")
+def get_plugins_list():
+    return active_plugins
 
 # 挂载前端静态页面
 app.mount("/data", StaticFiles(directory=data_dir), name="data")

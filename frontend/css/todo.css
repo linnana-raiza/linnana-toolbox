@@ -24,9 +24,68 @@
 .tab-btn.active { opacity: 1; border-bottom: 2px solid #3b82f6; font-weight: bold; }
 
 #todo-list { list-style: none; padding: 0; margin: 0; flex: 1; overflow-y: auto; }
+.due-badge {
+    /* 关键属性：自动把标签推到父元素 (textBox) 的最右侧 */
+    margin-left: auto; 
+    margin-right: 10px; /* 和右侧的操作按钮保持间距 */
+
+    /* 优化小标签尺寸 */
+    font-size: 0.75rem;
+    padding: 2px 8px; /* 降低高度 */
+    border-radius: 4px;
+    white-space: nowrap; /* 严禁换行 */
+    backdrop-filter: blur(4px);
+    transition: all 0.3s ease;
+    
+    /* 移除之前为了 column 布局加的 marginTop */
+    margin-top: 0 !important; 
+}
+
+/* 正常未来状态 (例如：绿色或低饱和蓝) */
+.due-future {
+    background: rgba(46, 204, 113, 0.15);
+    color: #2ecc71;
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+/* 本日即将逾期 (警告：橙色) */
+.due-today {
+    background: rgba(243, 156, 18, 0.2);
+    color: #f39c12;
+    font-weight: bold;
+    border: 1px solid rgba(243, 156, 18, 0.5);
+    animation: pulse-warning 2s infinite; /* 轻微呼吸特效吸引注意力 */
+}
+
+/* 已经逾期 (危险：红色) */
+.due-overdue {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+    font-weight: bold;
+    border: 1px solid rgba(231, 76, 60, 0.5);
+}
+
+/* 给本日逾期加一个不惹人烦的微弱呼吸灯效果 */
+@keyframes pulse-warning {
+    0% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(243, 156, 18, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0); }
+}
 .todo-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed rgba(255,255,255,0.1); }
-.todo-text-box { flex: 1; margin: 0 10px; display: flex; flex-direction: column; cursor: pointer; overflow: hidden; }
-.todo-text { font-size: 1rem; word-break: break-word; }
+.todo-text-box {
+    display: flex;
+    flex-direction: row; /* 强制横向排列 */
+    align-items: center; /* 垂直方向居中对齐 */
+    flex: 1; /* 撑满剩余空间 */
+    margin-left: 10px;
+    cursor: pointer;
+    overflow: hidden; /* 防止文字过长撑破布局 */
+}
+.todo-text {
+    font-size: 1rem;
+    color: var(--text-color);
+    transition: all 0.3s ease;
+}
 .todo-date-tag { font-size: 0.75rem; color: #a0aec0; margin-top: 4px; }
 .todo-item.completed .todo-text-box { text-decoration: line-through; opacity: 0.5; }
 

@@ -1,7 +1,9 @@
 // ==========================================
-// music.js: 纯便携版音乐引擎 (真实.env存储 + 孤儿重置 + 极限零损耗退出)
+// music.js: 纯便携版音乐引擎 (支持多文件夹队列)
 // ==========================================
-let playlist = [];
+let allPlaylists = {};       // 新增：存放所有文件夹的字典 { "默认列表": [...], "分类1": [...] }
+let currentPlaylistName = '';// 新增：当前选中的文件夹名
+let playlist = [];           // 当前正在播放的数组
 let currentTrackIndex = -1;
 let isPlaying = false;
 let fadeTimer = null;
@@ -27,44 +29,77 @@ async function fetchMusicList() {
     try {
         const data = await safeFetchJson('/api/music/list?t=' + Date.now());
         if (!data.error) {
-            playlist = data;
-            renderMusicList();
+            allPlaylists = data;
             
-            if (playlist.length > 0) {
-                // 🚀 核心修改 1：向后端请求最新的 .env 数据（跨电脑便携的核心）
-                const envData = await safeFetchJson('/api/settings/get-all-settings?t=' + Date.now());
-                const savedName = envData['LAST_MUSIC_NAME'];
-                const savedTime = envData['LAST_MUSIC_TIME'];
-                
-                let startIndex = 0;
-                
-                // 🚀 核心修改 2：强校验。如果用户在外部删了这首歌，indexOf 找不到就会自动重置为 0 (第一首歌)
-                if (savedName) {
-                    const idx = playlist.findIndex(t => t.name === savedName);
-                    if (idx !== -1) {
-                        startIndex = idx; 
-                        console.log(`🎵 成功恢复记忆：${savedName}`);
-                    } else {
-                        console.warn(`⚠️ 记忆的歌曲 [${savedName}] 不在文件夹中，已重置为默认。`);
-                    }
-                }
-                
-                loadTrack(startIndex, false); 
-                
-                if (savedTime && !isNaN(savedTime)) {
-                    audioPlayer.addEventListener('loadedmetadata', function onMetaLoad() {
-                        audioPlayer.currentTime = parseFloat(savedTime);
-                        audioPlayer.removeEventListener('loadedmetadata', onMetaLoad);
-                    });
-                }
-            } else {
+            // 获取所有存在的文件夹名字
+            const folderNames = Object.keys(allPlaylists);
+            if (folderNames.length === 0) {
                 titleDisplay.textContent = "🎵 请在 data/music 放入音乐";
+                return;
+            }
+
+            // 🚀 核心：向后端请求最新的 .env 数据
+            const envData = await safeFetchJson('/api/settings/get-all-settings?t=' + Date.now());
+            const savedPlaylist = envData['LAST_PLAYLIST_NAME'];
+            const savedName = envData['LAST_MUSIC_NAME'];
+            const savedTime = envData['LAST_MUSIC_TIME'];
+            
+            // 决定初始加载哪个文件夹：如果记忆的文件夹存在就用它，否则用数组里的第一个
+            currentPlaylistName = (savedPlaylist && allPlaylists[savedPlaylist]) ? savedPlaylist : folderNames[0];
+            playlist = allPlaylists[currentPlaylistName];
+
+            renderMusicList(); // 渲染下拉框和歌曲列表
+            
+            let startIndex = 0;
+            // 强校验。如果用户在外部删了这首歌，indexOf 找不到就会自动重置为 0
+            if (savedName) {
+                const idx = playlist.findIndex(t => t.name === savedName);
+                if (idx !== -1) {
+                    startIndex = idx; 
+                    console.log(`🎵 成功恢复记忆：[${currentPlaylistName}] -> ${savedName}`);
+                }
+            }
+            
+            loadTrack(startIndex, false); 
+            
+            if (savedTime && !isNaN(savedTime)) {
+                audioPlayer.addEventListener('loadedmetadata', function onMetaLoad() {
+                    audioPlayer.currentTime = parseFloat(savedTime);
+                    audioPlayer.removeEventListener('loadedmetadata', onMetaLoad);
+                });
             }
         }
     } catch (e) { console.error("读取音乐列表失败", e); }
 }
 
+// 2. 渲染 UI：动态生成下拉框和列表
 function renderMusicList() {
+    // A. 动态生成或更新下拉框
+    let folderSelect = document.getElementById('music-folder-select');
+    if (!folderSelect) {
+        folderSelect = document.createElement('select');
+        folderSelect.id = 'music-folder-select';
+        folderSelect.style.cssText = 'width: 100%; padding: 8px; background: rgba(0,0,0,0.4); border: none; border-bottom: 1px dashed rgba(255,255,255,0.2); color: white; outline: none; margin-bottom: 5px; cursor: pointer; font-size: 0.9rem;';
+        
+        folderSelect.addEventListener('change', (e) => {
+            switchPlaylistFolder(e.target.value);
+        });
+        
+        listPanel.insertBefore(folderSelect, listUl);
+    }
+    
+    // 填充下拉框选项
+    folderSelect.innerHTML = '';
+    Object.keys(allPlaylists).forEach(folder => {
+        const option = document.createElement('option');
+        option.value = folder;
+        option.textContent = `📁 ${folder} (${allPlaylists[folder].length} 首)`;
+        option.style.background = "rgba(0,0,0,0.8)";
+        if (folder === currentPlaylistName) option.selected = true;
+        folderSelect.appendChild(option);
+    });
+
+    // B. 渲染当前文件夹里的歌曲
     listUl.innerHTML = '';
     playlist.forEach((track, index) => {
         const li = document.createElement('li');
@@ -72,13 +107,31 @@ function renderMusicList() {
         li.textContent = track.name;
         li.title = track.name;
         li.onclick = () => {
-            loadTrack(index, true); // 手动点击切歌，需要记录名字
+            loadTrack(index, true); 
             playMusicWithFade();
             listPanel.classList.remove('show');
         };
         listUl.appendChild(li);
     });
     updateListHighlight();
+}
+
+// 🚀 新增：切换文件夹队列的逻辑
+function switchPlaylistFolder(newFolderName) {
+    if (newFolderName === currentPlaylistName) return;
+    
+    currentPlaylistName = newFolderName;
+    playlist = allPlaylists[currentPlaylistName];
+    
+    // 保存选择到 .env
+    if (typeof debouncedSave === 'function') {
+        debouncedSave('LAST_PLAYLIST_NAME', currentPlaylistName);
+    }
+    
+    // 渲染新列表，并默认开始播放这个文件夹里的第一首歌
+    renderMusicList();
+    loadTrack(0, true);
+    playMusicWithFade();
 }
 
 function updateListHighlight() {

@@ -8,7 +8,6 @@
 
     <link rel="stylesheet" href="./css/base.css">
     <link rel="stylesheet" href="./css/layout.css">
-    <link rel="stylesheet" href="./css/search.css">
     <link rel="stylesheet" href="./css/settings.css">
     <link rel="stylesheet" href="./css/todo.css">
     <link rel="stylesheet" href="./css/launcher.css">
@@ -20,17 +19,9 @@
     <video id="bg-video" autoplay loop muted><source src="/data/wallpaper-dynamic.mp4" type="video/mp4"></video>
 
     <div id="top-controls">
-        <div id="search-container">
-            <input type="text" id="search-input" placeholder="输入关键字并回车...">
-            <button id="search-btn" class="control-btn" title="全局搜索">🔍</button>
-            <div id="search-results" class="glass-dropdown glass-widget">
-                <ul id="search-results-list"></ul>
-            </div>
-        </div>
         <button id="settings-btn" class="control-btn">⚙️</button>
         <button id="wallpaper-toggle" class="control-btn">静态壁纸</button>
         <button id="app-menu-btn" class="control-btn" title="应用菜单">应用</button>
-        <button id="stt-toggle-btn" class="control-btn" title="启动全局语音输入">语音转文字</button>
         <button id="log-btn" class="control-btn" title="查看运行日志">日志</button>
     </div>
 
@@ -104,11 +95,17 @@
     </div>
 
     <div id="app-menu-modal" class="glass-modal">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 10px; margin-bottom: 20px;">
-            <h2 style="margin: 0; border: none; padding: 0;">🚀 应用启动器</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 10px; margin-bottom: 15px;">
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <h2 style="margin: 0; border: none; padding: 0;">🚀 启动器</h2>
+                <div id="app-tabs" style="display: flex; gap: 10px; padding-top: 5px;">
+                    <button class="tab-btn active" data-app-tab="apps">本地应用</button>
+                    <button class="tab-btn" data-app-tab="plugins">扩展插件</button>
+                </div>
+            </div>
             <div style="display: flex; gap: 10px;">
                 <button id="add-app-btn" class="control-btn primary" style="padding: 4px 12px; margin: 0;">➕ 添加应用</button>
-                <button id="close-app-menu" class="close-settings-btn" style="position: static; padding: 0;">×</button>
+                <button id="close-app-menu" class="close-settings-btn" style="position: static; padding: 0; line-height: 1;">×</button>
             </div>
         </div>
         <div id="app-grid" class="app-grid"></div>
@@ -120,6 +117,17 @@
             <button id="close-log-btn" class="close-settings-btn" style="position: static; padding: 0;">×</button>
         </div>
         <div id="log-content" style="height: 350px; overflow-y: auto; background: rgba(0,0,0,0.6); border-radius: 8px; padding: 12px; font-family: Consolas, monospace; font-size: 13px; color: #a3be8c; white-space: pre-wrap; word-wrap: break-word;"></div>
+    </div>
+
+    <div id="plugin-modal" class="glass-modal" style="width: 850px; height: 600px; padding: 0; display: flex; flex-direction: column; overflow: hidden; resize: both; position: absolute; transition: opacity 0.3s ease, transform 0.3s ease;">
+        
+        <div id="plugin-modal-header" style="padding: 15px 20px; background: rgba(0,0,0,0.3); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: grab;">
+            <h3 id="plugin-modal-title" style="margin: 0; font-size: 1.1rem; border: none; padding: 0; color: white;">加载中...</h3>
+            <button id="close-plugin-btn" class="close-settings-btn" style="position: static; padding: 0; line-height: 1; cursor: pointer;">×</button>
+        </div>
+
+        <div id="plugin-content-container" style="flex: 1; width: 100%; position: relative; overflow-y: auto; overflow-x: hidden; padding: 20px;"></div>
+        
     </div>
 
     <script src="./lib/pixi.min.js"></script>
@@ -134,8 +142,8 @@
     <script src="./js/settings.js"></script>
     <script src="./js/todo.js"></script>
     <script src="./js/launcher.js"></script>
-    <script src="./js/stt.js"></script>
     <script src="./js/init.js"></script>
     <script src="./js/music.js"></script> 
+
 </body>
 </html>
